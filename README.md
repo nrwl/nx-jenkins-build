@@ -185,7 +185,11 @@ def distributed(String target, int bins) {
 
     tasks[title] = {
       jsTask {
-        stage(title) {
+        stage("${title}: Prepare") {
+          checkout scm
+          sh 'yarn install'
+        }
+        stage("${title}: Run") {
           sh "npx nx run-many --target=${target} --projects=${list} --parallel"
         }
       }

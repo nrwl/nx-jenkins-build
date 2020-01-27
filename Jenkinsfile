@@ -1,13 +1,9 @@
-stage("Prepare") {
-  jsTask {
-    checkout scm
-    sh 'yarn install'
-  }
-}
-
 def distributedTasks = [:]
 
 stage("Building Distributed Tasks") {
+  checkout scm
+  sh 'yarn install'
+
   distributedTasks << distributed('test', 3)
   distributedTasks << distributed('lint', 3)
   distributedTasks << distributed('build', 3)
@@ -38,6 +34,8 @@ def distributed(String target, int bins) {
     tasks[title] = {
       jsTask {
         stage(title) {
+          checkout scm
+          sh 'yarn install'
           sh "npx nx run-many --target=${target} --projects=${list} --parallel"
         }
       }
@@ -55,7 +53,8 @@ def splitJobs(String target, int bins) {
 
   def tasks = data['tasks'].collect { it['target']['project'] }
 
-  def split = tasks.collate(bins)
+  def c = Math.ceil(tasks.size / bins).toInteger()
+  def split = tasks.collate(c)
 
   return split
 }
