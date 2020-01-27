@@ -141,24 +141,21 @@ Prepare Distributed Tasks - lint2
 
 ```
 
-### Initial Setup
+### Distributed Setup
 
-The `initial_setup` job figures out what is affected and what needs to run on what agent.
 
 ```groovy
-stage("Prepare") {
-  jsTask {
-    checkout scm
-    sh 'yarn install'
-  }
-}
-
 def distributedTasks = [:]
 
 stage("Building Distributed Tasks") {
-  distributedTasks << distributed('test', 3)
-  distributedTasks << distributed('lint', 3)
-  distributedTasks << distributed('build', 3)
+  jsTask {
+    checkout scm
+    sh 'yarn install'
+
+    distributedTasks << distributed('test', 3)
+    distributedTasks << distributed('lint', 3)
+    distributedTasks << distributed('build', 3)
+  }
 }
 
 stage("Run Distributed Tasks") {
@@ -178,18 +175,14 @@ def distributed(String target, int bins) {
   def tasks = [:]
 
   jobs.eachWithIndex { jobRun, i ->
-    jsTask { echo 'loop' }
-
     def list = jobRun.join(',')
     def title = "${target} - ${i}"
 
     tasks[title] = {
       jsTask {
-        stage("${title}: Prepare") {
+        stage(title) {
           checkout scm
           sh 'yarn install'
-        }
-        stage("${title}: Run") {
           sh "npx nx run-many --target=${target} --projects=${list} --parallel"
         }
       }
@@ -202,15 +195,22 @@ def distributed(String target, int bins) {
 def splitJobs(String target, int bins) {
   def String baseSha = env.CHANGE_ID ? 'origin/master' : 'origin/master~1'
   def String raw
-  jsTask { raw = sh(script: "npx nx print-affected --base=${baseSha} --target=${target}", returnStdout: true) }
+  raw = sh(script: "npx nx print-affected --base=${baseSha} --target=${target}", returnStdout: true)
   def data = readJSON(text: raw)
 
   def tasks = data['tasks'].collect { it['target']['project'] }
 
-  def split = tasks.collate(bins)
+  if (tasks.size() == 0) {
+    return tasks
+  }
+
+  // this has to happen because Math.ceil is not allowed by jenkins sandbox (╯°□°）╯︵ ┻━┻
+  def c = sh(script: "echo \$(( ${tasks.size()} / ${bins} ))", returnStdout: true).toInteger()
+  def split = tasks.collate(c)
 
   return split
 }
+
 ```
 
 Let's step through it:
@@ -263,17 +263,17 @@ tasks[title] = {
 finally, we merge each map of target jobs into a big map, and pass that to `parallel`.
 
 ```groovy
-def distributedTasks = [:]
-
 stage("Building Distributed Tasks") {
-  distributedTasks << distributed('test', 3)
-  distributedTasks << distributed('lint', 3)
-  distributedTasks << distributed('build', 3)
+  jsTask {
+    checkout scm
+    sh 'yarn install'
+
+    distributedTasks << distributed('test', 3)
+    distributedTasks << distributed('lint', 3)
+    distributedTasks << distributed('build', 3)
+  }
 }
 
-stage("Run Distributed Tasks") {
-  parallel distributedTasks
-}
 ```
 
 ### Improvements
