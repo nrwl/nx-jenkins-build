@@ -7,7 +7,7 @@ stage("Building Distributed Tasks") {
 
     distributedTasks << distributed('test', 3)
     distributedTasks << distributed('lint', 3)
-    distributedTasks << distributed('build', 3)
+    distributedTasks << distributed('build', 3, '--prod')
   }
 }
 
@@ -23,7 +23,7 @@ def jsTask(Closure cl) {
   }
 }
 
-def distributed(String target, int bins) {
+def distributed(String target, int bins, String args='') {
   def jobs = splitJobs(target, bins)
   def tasks = [:]
 
@@ -36,7 +36,7 @@ def distributed(String target, int bins) {
         stage(title) {
           checkout scm
           sh 'yarn install'
-          sh "npx nx run-many --target=${target} --projects=${list} --parallel"
+          sh "npx nx run-many --target=${target} --projects=${list} --parallel ${args}"
         }
       }
     }
