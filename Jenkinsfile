@@ -23,6 +23,7 @@ def jsTask(Closure cl) {
   }
 }
 
+
 def distributed(String target, int bins, String args='') {
   def jobs = splitJobs(target, bins)
   def tasks = [:]
@@ -53,12 +54,12 @@ def splitJobs(String target, int bins) {
 
   def tasks = data['tasks'].collect { it['target']['project'] }
 
-  if (tasks.size() == 0) {
-    return tasks
+  if(tasks.size() == 0){
+     return tasks
   }
 
-  // this has to happen because Math.ceil is not allowed by jenkins sandbox (╯°□°）╯︵ ┻━┻
-  def c = sh(script: "echo \$(( ${tasks.size()} / ${bins} ))", returnStdout: true).toInteger()
+  // Simple ceiling function as Math.ceil is not allowed by jenkins sandbox (╯°□°）╯︵ ┻━┻
+  int c = (tasks.size() + bins -1) / bins
   def split = tasks.collate(c)
 
   return split
